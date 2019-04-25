@@ -2,8 +2,6 @@ package com.marklogic.client.ext;
 
 import com.marklogic.client.DatabaseClient;
 import com.marklogic.client.DatabaseClientFactory;
-import com.marklogic.client.ext.ConfiguredDatabaseClientFactory;
-import com.marklogic.client.ext.DatabaseClientConfig;
 
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.X509TrustManager;
@@ -16,26 +14,14 @@ public class DefaultConfiguredDatabaseClientFactory implements ConfiguredDatabas
 
 	@Override
 	public DatabaseClient newDatabaseClient(DatabaseClientConfig config) {
-		DatabaseClientFactory.SecurityContext securityContext;
+		DatabaseClientFactory.Bean bean = new DatabaseClientFactory.Bean();
+		bean.setHost(config.getHost());
+		bean.setPort(config.getPort());
+		bean.setDatabase(config.getDatabase());
+		bean.setConnectionType(config.getConnectionType());
+		bean.setExternalName(config.getExternalName());
 
-		SecurityContextType securityContextType = config.getSecurityContextType();
-		DatabaseClient.ConnectionType connectionType = config.getConnectionType();
-
-		if (SecurityContextType.BASIC.equals(securityContextType)) {
-			securityContext = new DatabaseClientFactory.BasicAuthContext(config.getUsername(), config.getPassword());
-		} else if (SecurityContextType.CERTIFICATE.equals(securityContextType)) {
-			securityContext = buildCertificateAuthContent(config);
-		} else if (SecurityContextType.DIGEST.equals(securityContextType)) {
-			securityContext = new DatabaseClientFactory.DigestAuthContext(config.getUsername(), config.getPassword());
-		} else if (SecurityContextType.KERBEROS.equals(securityContextType)) {
-			securityContext = new DatabaseClientFactory.KerberosAuthContext(config.getExternalName());
-		} else if (SecurityContextType.NONE.equals(securityContextType)) {
-			securityContext = null;
-		}
-		else {
-			throw new IllegalArgumentException("Unsupported SecurityContextType: " + securityContextType);
-		}
-
+		DatabaseClientFactory.SecurityContext securityContext = buildSecurityContext(config);
 		if (securityContext != null) {
 			SSLContext sslContext = config.getSslContext();
 			DatabaseClientFactory.SSLHostnameVerifier verifier = config.getSslHostnameVerifier();
@@ -45,38 +31,29 @@ public class DefaultConfiguredDatabaseClientFactory implements ConfiguredDatabas
 			if (verifier != null) {
 				securityContext = securityContext.withSSLHostnameVerifier(verifier);
 			}
+
+			bean.setSecurityContext(securityContext);
 		}
 
-		String host = config.getHost();
-		int port = config.getPort();
-		String database = config.getDatabase();
-
-		if (connectionType == null) {
-			if (securityContext == null) {
-				if (database == null) {
-					return DatabaseClientFactory.newClient(host, port);
-				}
-				return DatabaseClientFactory.newClient(host, port, database);
-			}
-			if (database == null) {
-				return DatabaseClientFactory.newClient(host, port, securityContext);
-			}
-			return DatabaseClientFactory.newClient(host, port, database, securityContext);
-		}
-		else {
-			if (securityContext == null) {
-				if (database == null) {
-					return DatabaseClientFactory.newClient(host, port, null, connectionType);
-				}
-				return DatabaseClientFactory.newClient(host, port, database, null, connectionType);
-			}
-			if (database == null) {
-				return DatabaseClientFactory.newClient(host, port, securityContext, connectionType);
-			}
-			return DatabaseClientFactory.newClient(host, port, database, securityContext, connectionType);
-		}
+		return bean.newClient();
 	}
 
+	protected DatabaseClientFactory.SecurityContext buildSecurityContext(DatabaseClientConfig config) {
+		SecurityContextType securityContextType = config.getSecurityContextType();
+		if (SecurityContextType.BASIC.equals(securityContextType)) {
+			return new DatabaseClientFactory.BasicAuthContext(config.getUsername(), config.getPassword());
+		} else if (SecurityContextType.CERTIFICATE.equals(securityContextType)) {
+			return buildCertificateAuthContent(config);
+		} else if (SecurityContextType.DIGEST.equals(securityContextType)) {
+			return new DatabaseClientFactory.DigestAuthContext(config.getUsername(), config.getPassword());
+		} else if (SecurityContextType.KERBEROS.equals(securityContextType)) {
+			return new DatabaseClientFactory.KerberosAuthContext(config.getExternalName());
+		} else if (SecurityContextType.NONE.equals(securityContextType)) {
+			return null;
+		} else {
+			throw new IllegalArgumentException("Unsupported SecurityContextType: " + securityContextType);
+		}
+	}
 
 	protected DatabaseClientFactory.SecurityContext buildCertificateAuthContent(DatabaseClientConfig config) {
 		X509TrustManager trustManager = config.getTrustManager();
