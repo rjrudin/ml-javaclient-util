@@ -131,9 +131,6 @@ public class PropertiesModuleManager extends LoggingObject implements ModulesMan
     }
 
     /**
-     * Lower-casing avoids some annoying issues on Windows where sometimes you get "C:" at the start, and other times
-     * you get "c:". This of course will be a problem if you for some reason have modules with the same names but
-     * differing in some cases, but I'm not sure why anyone would do that.
      *
      * @param file
      * @return
@@ -147,6 +144,13 @@ public class PropertiesModuleManager extends LoggingObject implements ModulesMan
 		return key;
 	}
 
+	/**
+	 * Lower-casing avoids some annoying issues on Windows where sometimes you get "C:" at the start, and other times
+	 * you get "c:".
+	 *
+	 * @param file
+	 * @return
+	 */
 	protected String normalizeDriveLetter(File file) {
 		Path absolutePath = file.toPath().toAbsolutePath();
 		String path = absolutePath.toString();
