@@ -35,6 +35,9 @@ public class DefaultDocumentWriteOperationAdapter implements DocumentWriteOperat
 			}
 		} else if (handle instanceof DOMHandle) {
 			return ContentFactory.newContent(uri, ((DOMHandle) handle).get(), options);
+		} else if (handle instanceof JacksonHandle) {
+			options.setFormatJson();
+			return ContentFactory.newContent(uri, ((JacksonHandle)handle).get().toString(), options);
 		} else throw new IllegalArgumentException("No support yet for content class: " + handle.getClass().getName());
 	}
 

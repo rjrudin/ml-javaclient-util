@@ -5,13 +5,11 @@ import com.marklogic.client.datamovement.DataMovementManager;
 import com.marklogic.client.datamovement.JobTicket;
 import com.marklogic.client.datamovement.WriteBatcher;
 import com.marklogic.client.document.DocumentWriteOperation;
-import com.marklogic.client.ext.helper.LoggingObject;
 
 import java.util.List;
 
-public class DataMovementBatchWriter extends LoggingObject implements BatchWriter {
+public class DataMovementBatchWriter extends BaseBatchWriter implements BatchWriter {
 
-	private DatabaseClient client;
 	private DataMovementManager dataMovementManager;
 	private WriteBatcher writeBatcher;
 	private int batchSize = 100;
@@ -19,7 +17,6 @@ public class DataMovementBatchWriter extends LoggingObject implements BatchWrite
 	private JobTicket jobTicket;
 
 	public DataMovementBatchWriter(DatabaseClient client) {
-		this.client = client;
 		this.dataMovementManager = client.newDataMovementManager();
 	}
 
@@ -42,6 +39,7 @@ public class DataMovementBatchWriter extends LoggingObject implements BatchWrite
 	public void waitForCompletion() {
 		if (writeBatcher != null) {
 			writeBatcher.flushAndWait();
+			super.stop();
 			if (jobTicket != null) {
 				dataMovementManager.stopJob(writeBatcher);
 			} else {

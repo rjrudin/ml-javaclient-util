@@ -1,0 +1,15 @@
+{
+	"endpoint": "/writeDocs.sjs",
+	"functionName": "writeDocs",
+	"params": [
+		{
+			"name": "input",
+			"datatype": "jsonDocument",
+			"multiple": true,
+			"nullable": true
+		}
+	],
+	"$bulk": {
+		"inputBatchSize": 100
+	}
+}

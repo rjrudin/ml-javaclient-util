@@ -17,7 +17,7 @@ import java.util.List;
  * MarkLogic. Allows for setting a TaskExecutor instance, and if one is not set, a default one will be created based
  * on the threadCount attribute. That attribute is ignored if a TaskExecutor is set.
  */
-public abstract class BatchWriterSupport extends LoggingObject implements BatchWriter {
+public abstract class BatchWriterSupport extends BaseBatchWriter implements BatchWriter {
 
 	private TaskExecutor taskExecutor;
 	private int threadCount = 16;
@@ -42,6 +42,7 @@ public abstract class BatchWriterSupport extends LoggingObject implements BatchW
 			}
 			taskExecutor = null;
 		}
+		stop();
 
 		if (writeListener != null) {
 			writeListener.afterCompletion();

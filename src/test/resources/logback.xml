@@ -8,7 +8,7 @@
     </encoder>
   </appender>
 
-  <root level="INFO">
+  <root level="WARN">
     <appender-ref ref="STDOUT" />
   </root>
 
@@ -16,15 +16,15 @@
     <appender-ref ref="STDOUT" />
   </logger>
 
-	<logger name="com.marklogic.client.ext.batch" level="INFO" additivity="false">
+	<logger name="com.marklogic.client.ext.batch" level="WARN" additivity="false">
 		<appender-ref ref="STDOUT" />
 	</logger>
 
-	<logger name="com.marklogic.client.ext" level="INFO" additivity="false">
+	<logger name="com.marklogic.client.ext" level="WARN" additivity="false">
 		<appender-ref ref="STDOUT" />
 	</logger>
 
-	<logger name="com.marklogic.client.modulesloader" level="INFO" additivity="false">
+	<logger name="com.marklogic.client.modulesloader" level="WARN" additivity="false">
 		<appender-ref ref="STDOUT" />
 	</logger>
 

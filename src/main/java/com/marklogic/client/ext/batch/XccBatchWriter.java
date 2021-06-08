@@ -8,7 +8,9 @@ import com.marklogic.xcc.ContentSource;
 import com.marklogic.xcc.Session;
 import com.marklogic.xcc.exceptions.RequestException;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * XCC implementation for batched writes. Most important thing here is we depend on an instance of
@@ -19,6 +21,8 @@ public class XccBatchWriter extends BatchWriterSupport {
 	private List<ContentSource> contentSources;
 	private int contentSourceIndex = 0;
 	private DocumentWriteOperationAdapter documentWriteOperationAdapter;
+	private Map<Integer, Session> sessionMap;
+	private long adaptingTime = 0;
 
 	public XccBatchWriter(List<ContentSource> contentSources) {
 		this.contentSources = contentSources;
@@ -26,31 +30,61 @@ public class XccBatchWriter extends BatchWriterSupport {
 	}
 
 	@Override
+	public void initialize() {
+		super.initialize();
+
+		adaptingTime = 0;
+		sessionMap = new HashMap<>();
+		for (int i = 0; i < contentSources.size(); i++) {
+			sessionMap.put(i, contentSources.get(i).newSession());
+		}
+	}
+
+	@Override
 	public void write(final List<? extends DocumentWriteOperation> items) {
-		ContentSource contentSource = determineContentSourceToUse();
-		Runnable runnable = buildRunnable(contentSource, items);
+		Runnable runnable = buildRunnable(determineSessionToUse(), items);
 		executeRunnable(runnable, items);
 	}
 
-	protected ContentSource determineContentSourceToUse() {
+	@Override
+	public void waitForCompletion() {
+		super.waitForCompletion();
+
+		sessionMap.forEach((index, session) -> {
+			try {
+				session.close();
+			} catch (Exception e) {
+				logger.warn("Unable to close XCC session; cause: " + e.getMessage());
+			}
+		});
+
+		System.out.println("XCC adapting time: " + adaptingTime);
+	}
+
+	protected synchronized Session determineSessionToUse() {
+		if (sessionMap.size() == 1) {
+			return sessionMap.get(0);
+		}
+
 		if (contentSourceIndex >= contentSources.size()) {
 			contentSourceIndex = 0;
 		}
-		ContentSource contentSource = contentSources.get(contentSourceIndex);
+		Session session = sessionMap.get(contentSourceIndex);
 		contentSourceIndex++;
-		return contentSource;
+		return session;
 	}
 
-	protected Runnable buildRunnable(final ContentSource contentSource, final List<? extends DocumentWriteOperation> items) {
+	protected Runnable buildRunnable(final Session session, final List<? extends DocumentWriteOperation> items) {
 		return new Runnable() {
 			@Override
 			public void run() {
-				Session session = contentSource.newSession();
 				int count = items.size();
 				Content[] array = new Content[count];
+				long start = System.currentTimeMillis();
 				for (int i = 0; i < count; i++) {
 					array[i] = documentWriteOperationAdapter.adapt(items.get(i));
 				}
+				adaptingTime += (System.currentTimeMillis() - start);
 				if (logger.isDebugEnabled()) {
 					logger.debug("Writing " + count + " documents to MarkLogic");
 				}
@@ -61,8 +95,6 @@ public class XccBatchWriter extends BatchWriterSupport {
 					}
 				} catch (RequestException e) {
 					throw new RuntimeException("Unable to insert content: " + e.getMessage(), e);
-				} finally {
-					session.close();
 				}
 			}
 		};

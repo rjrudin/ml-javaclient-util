@@ -75,4 +75,8 @@ public class XccTemplate {
     public String executeAdhocQuery(String xquery) {
         return execute(new AdhocQueryCallback(xquery));
     }
+
+	public ContentSource getContentSource() {
+		return contentSource;
+	}
 }
