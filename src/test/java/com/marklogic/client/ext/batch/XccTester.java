@@ -28,8 +28,8 @@ public class XccTester {
 	private static final String COLLECTION = "data";
 	private static XccTemplate xccTemplate;
 	private static DatabaseClient databaseClient;
-	private static final int batches = 1;
-	private static final int batchSize = 2;
+	private static final int batches = 100;
+	private static final int batchSize = 100;
 	private static final int iterations = 1;
 	private static final int threadCount = 32;
 
@@ -67,8 +67,8 @@ public class XccTester {
 		databaseClient = DatabaseClientFactory.newClient(host, port, new DatabaseClientFactory.DigestAuthContext(username, password));
 
 		for (int i = 1; i <= iterations; i++) {
-//			testXcc();
-//			testWriteBatcher();
+			testXcc();
+			testWriteBatcher();
 			testBulkCaller();
 		}
 	}
@@ -96,6 +96,8 @@ public class XccTester {
 	}
 
 	private static void testBulkCaller() {
+		deleteData();
+
 		String API = "{\n" +
 			"    \"endpoint\": \"/data-hub/5/data-services/bulk/writeDocs.sjs\",\n" +
 			"    \"functionName\": \"writeDocs\",\n" +
@@ -143,21 +145,9 @@ public class XccTester {
 		long start = System.currentTimeMillis();
 		documents.forEach(docs -> {
 			for (DocumentWriteOperation op : docs) {
-				DocumentMetadataHandle metadata = (DocumentMetadataHandle) op.getMetadata();
-				String metadataXml = metadata.toString();
-				String uri = op.getUri();
-
 				// TODO Hardcoded for JSON
 				JsonNode content = ((JacksonHandle) op.getContent()).get();
-
-				ObjectNode node = objectMapper.createObjectNode();
-				node.put("uri", uri);
-				node.put("metadataXml", metadataXml);
-				node.set("content", content);
-				//bulkInputCaller.acceptAll(new String[]{uri, metadataXml, content});
-				//bulkInputCaller.acceptAll(new String[]{uri, content});
-				bulkInputCaller.accept(node.toString());
-				//bulkInputCaller.accept(content);
+				bulkInputCaller.accept(content.toString());
 			}
 		});
 		bulkInputCaller.awaitCompletion();
