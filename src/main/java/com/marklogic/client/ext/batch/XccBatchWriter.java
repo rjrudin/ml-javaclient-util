@@ -22,7 +22,6 @@ public class XccBatchWriter extends BatchWriterSupport {
 	private int contentSourceIndex = 0;
 	private DocumentWriteOperationAdapter documentWriteOperationAdapter;
 	private Map<Integer, Session> sessionMap;
-	private long adaptingTime = 0;
 
 	public XccBatchWriter(List<ContentSource> contentSources) {
 		this.contentSources = contentSources;
@@ -33,7 +32,6 @@ public class XccBatchWriter extends BatchWriterSupport {
 	public void initialize() {
 		super.initialize();
 
-		adaptingTime = 0;
 		sessionMap = new HashMap<>();
 		for (int i = 0; i < contentSources.size(); i++) {
 			sessionMap.put(i, contentSources.get(i).newSession());
@@ -44,6 +42,12 @@ public class XccBatchWriter extends BatchWriterSupport {
 	public void write(final List<? extends DocumentWriteOperation> items) {
 		Runnable runnable = buildRunnable(determineSessionToUse(), items);
 		executeRunnable(runnable, items);
+	}
+
+	public void writeContent(Content[] items) {
+		// TODO Not passing items, which means failures can't be reported
+		executeRunnable(buildContentRunnable(contentSources.get(0).newSession(), items), null);
+		//executeRunnable(buildContentRunnable(determineSessionToUse(), items), null);
 	}
 
 	@Override
@@ -57,11 +61,9 @@ public class XccBatchWriter extends BatchWriterSupport {
 				logger.warn("Unable to close XCC session; cause: " + e.getMessage());
 			}
 		});
-
-		System.out.println("XCC adapting time: " + adaptingTime);
 	}
 
-	protected synchronized Session determineSessionToUse() {
+	protected Session determineSessionToUse() {
 		if (sessionMap.size() == 1) {
 			return sessionMap.get(0);
 		}
@@ -74,28 +76,42 @@ public class XccBatchWriter extends BatchWriterSupport {
 		return session;
 	}
 
+	protected Runnable buildContentRunnable(final Session session, final Content[] items) {
+		return () -> {
+			int count = items.length;
+			if (logger.isDebugEnabled()) {
+				logger.debug("Writing " + count + " documents to MarkLogic");
+			}
+			try {
+				session.insertContent(items);
+				if (logger.isInfoEnabled()) {
+					logger.info("Wrote " + count + " documents to MarkLogic");
+				}
+			} catch (RequestException e) {
+				throw new RuntimeException("Unable to insert content: " + e.getMessage(), e);
+			} finally {
+				session.close();
+			}
+		};
+	}
+
 	protected Runnable buildRunnable(final Session session, final List<? extends DocumentWriteOperation> items) {
-		return new Runnable() {
-			@Override
-			public void run() {
-				int count = items.size();
-				Content[] array = new Content[count];
-				long start = System.currentTimeMillis();
-				for (int i = 0; i < count; i++) {
-					array[i] = documentWriteOperationAdapter.adapt(items.get(i));
+		return () -> {
+			int count = items.size();
+			Content[] array = new Content[count];
+			for (int i = 0; i < count; i++) {
+				array[i] = documentWriteOperationAdapter.adapt(items.get(i));
+			}
+			if (logger.isDebugEnabled()) {
+				logger.debug("Writing " + count + " documents to MarkLogic");
+			}
+			try {
+				session.insertContent(array);
+				if (logger.isInfoEnabled()) {
+					logger.info("Wrote " + count + " documents to MarkLogic");
 				}
-				adaptingTime += (System.currentTimeMillis() - start);
-				if (logger.isDebugEnabled()) {
-					logger.debug("Writing " + count + " documents to MarkLogic");
-				}
-				try {
-					session.insertContent(array);
-					if (logger.isInfoEnabled()) {
-						logger.info("Wrote " + count + " documents to MarkLogic");
-					}
-				} catch (RequestException e) {
-					throw new RuntimeException("Unable to insert content: " + e.getMessage(), e);
-				}
+			} catch (RequestException e) {
+				throw new RuntimeException("Unable to insert content: " + e.getMessage(), e);
 			}
 		};
 	}
